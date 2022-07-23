@@ -17,64 +17,39 @@
         }
         private static void StartGame()
         {
-            int generation = 0;
             int width = gameSettings.fieldSizeX;
             int height = gameSettings.fieldSizeY;
             Console.CursorVisible = false;
-            Console.SetWindowSize(width + 2, height+1);
+            Console.SetWindowSize(gameSettings.fieldSizeX > gameSettings.minConsoleWidth ? gameSettings.fieldSizeX + 2 : gameSettings.minConsoleWidth + 2,
+                                  gameSettings.fieldSizeY > gameSettings.minConsoleHeight ? gameSettings.fieldSizeY + 1 : gameSettings.minConsoleHeight + 1);
             char[,] fieldCurrentState = new char[width,height];
             char[,] fieldNewState = new char[width, height];
             fieldCurrentState = GenerateStartField(width, height);                    
             DrawField(fieldCurrentState);
+
             ConsoleKeyInfo keyPressed;
             do
             {
+                fieldNewState = CalculateNewStateField(fieldCurrentState);
+                if (gameSettings.debugMode)
+                {
+                    DrawField(fieldNewState);
+                    Console.ReadLine();
+                }
+                Array.Copy(fieldNewState,fieldCurrentState,fieldCurrentState.Length);
+                Thread.Sleep(gameSettings.realSpeed[gameSettings.speed - 1]*8000/gameSettings.fieldSizeX/gameSettings.fieldSizeY);
                 if (Console.KeyAvailable)
                 {
                     keyPressed = Console.ReadKey(true);
                     switch (keyPressed.Key)
                     {
-                        case ConsoleKey.Escape: SettingsMenu(); DrawField(fieldCurrentState); break;
+                        case ConsoleKey.Escape: SettingsMenu(); ReDrawFieldUnderMenu(fieldCurrentState); break;
                         case ConsoleKey.R: Console.Clear(); StartGame() ;break;
-                        case ConsoleKey.N: ShowNeighbours(fieldCurrentState);Console.ReadLine(); DrawField(fieldCurrentState); break;
+                        case ConsoleKey.H: gameSettings.debugMode = !gameSettings.debugMode; break;
                     }
                 }
-                generation++;
-                generation %= 10;
-                //gameSettings.cellColor = (ConsoleColor)(generation+1);
-                //Console.ForegroundColor = gameSettings.cellColor;
-                fieldNewState = CalculateNewStateField(fieldCurrentState);
-                Array.Copy(fieldNewState,fieldCurrentState,fieldCurrentState.Length);
-                Thread.Sleep(gameSettings.realSpeed[gameSettings.speed - 1]);
             }
             while (!exit);
-        }
-        private static void ShowNeighbours(char[,] fieldState)
-        {
-            ConsoleColor defaultColor = Console.ForegroundColor;
-            for(int n=0; n<gameSettings.populations; n++)
-            {
-                int neighboursCount = 0;
-                for (int j = 0; j <= fieldState.GetUpperBound(1); j++)
-                {
-                    for (int i = 0; i <= fieldState.GetUpperBound(0); i++)
-                    {
-                        neighboursCount = CalculateNeighbours(i, j, fieldState,n);
-                        if (fieldState[i, j] == gameSettings.aliveCell[n])
-                        {
-                            Console.ForegroundColor = ConsoleColor.Green;
-                        }
-                        else
-                        {
-                            Console.ForegroundColor = ConsoleColor.Red;
-                        }
-                        Console.SetCursorPosition(i, j);
-                        Console.Write(neighboursCount);
-                    }
-                }
-                Console.ForegroundColor = defaultColor;
-            }
-
         }
         private static void SettingsMenu()
         {
@@ -103,7 +78,7 @@
                 keyPressed = Console.ReadKey(true);
                 switch (keyPressed.Key)
                 {
-                    case ConsoleKey.UpArrow: gameSettings.fieldSizeY += gameSettings.fieldSizeY < 62 ? 1 : 0; ResizeField(); restart = true; break;//увеличение высоты игрового поля
+                    case ConsoleKey.UpArrow: gameSettings.fieldSizeY += gameSettings.fieldSizeY < 60 ? 1 : 0; ResizeField(); restart = true; break;//увеличение высоты игрового поля
                     case ConsoleKey.DownArrow: gameSettings.fieldSizeY -= gameSettings.fieldSizeY > 5 ? 1 : 0; ResizeField(); restart = true; break;//уменьшение высоты игрового поля
                     case ConsoleKey.LeftArrow: gameSettings.fieldSizeX -= gameSettings.fieldSizeX > 5 ? 1 : 0; ResizeField(); restart = true; break;//уменьшение ширины игрового поля
                     case ConsoleKey.RightArrow: gameSettings.fieldSizeX += gameSettings.fieldSizeX < 230 ? 1 : 0; ResizeField(); restart = true; break;//увеличение ширины игрового поля
@@ -111,8 +86,8 @@
                     case ConsoleKey.Q: gameSettings.density += gameSettings.density < 19 ? 1 : 0; restart = true; break;
                     case ConsoleKey.W: gameSettings.speed += gameSettings.speed < 6 ? 1 : 0; break;//увеличение скорости игры
                     case ConsoleKey.S: gameSettings.speed -= gameSettings.speed > 1 ? 1 : 0; break;//уменьшение скорости игры
-                    case ConsoleKey.E: gameSettings.populations += gameSettings.populations < 10 ? 1 : 0; break;//увеличение числа видов 
-                    case ConsoleKey.D: gameSettings.populations -= gameSettings.populations > 1 ? 1 : 0; break;//уменьшение числа видов
+                    case ConsoleKey.E: gameSettings.populations += gameSettings.populations < 10 ? 1 : 0; restart = true; break;//увеличение числа видов 
+                    case ConsoleKey.D: gameSettings.populations -= gameSettings.populations > 1 ? 1 : 0; restart = true; break;//уменьшение числа видов
                     case ConsoleKey.R: restart = true; menu = false; EraseMenuLeftovers(); break;
                     case ConsoleKey.X: ConfirmExit(); menu = false; break;                            //выход из игры
                     case ConsoleKey.Escape: menu = false; EraseMenuLeftovers(); break;                 //возврат в игру
@@ -127,27 +102,46 @@
         }
         public static void ResizeField()
         {
-            Console.WindowHeight = gameSettings.fieldSizeY < 5 ? 14 : gameSettings.fieldSizeY;
-            Console.WindowWidth = gameSettings.fieldSizeX < 5 ? 14 : gameSettings.fieldSizeX+2;
+            Console.SetWindowSize(gameSettings.fieldSizeX > gameSettings.minConsoleWidth ? gameSettings.fieldSizeX + 2 : gameSettings.minConsoleWidth+2, 
+                                  gameSettings.fieldSizeY > gameSettings.minConsoleHeight ? gameSettings.fieldSizeY + 1 : gameSettings.minConsoleHeight+1);
         }
         private static void DrawMenuBorders()
         {
             Console.ForegroundColor = gameSettings.menuBorderColor;
             Console.SetCursorPosition(0, 0);
-            Console.WriteLine("#=============================#");
-            for (int i = 0; i < 14; i++)
+            Console.Write("#");
+            for(int i=0;i<gameSettings.menuSizeX-2;i++)
             {
-                Console.WriteLine("|                             |");
+                Console.Write("=");
             }
-            Console.WriteLine("#=============================#");
+            Console.WriteLine("#");
+            for (int i = 0; i < gameSettings.menuSizeY-2; i++)
+            {
+                Console.Write("|");
+                for (int j = 0; j < gameSettings.menuSizeX - 2; j++)
+                {
+                    Console.Write(" ");
+                }
+                Console.WriteLine("|");
+            }
+            Console.Write("#");
+            for (int i = 0; i < gameSettings.menuSizeX - 2; i++)
+            {
+                Console.Write("=");
+            }
+            Console.WriteLine("#");
             Console.ForegroundColor = gameSettings.fieldColor;
         }
         private static void EraseMenuLeftovers()
         {
             Console.SetCursorPosition(0, 0);
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < gameSettings.menuSizeY; i++)
             {
-                Console.WriteLine("                               ");
+                for (int j = 0; j < gameSettings.menuSizeX; j++)
+                {
+                    Console.Write(" ");
+                }
+                Console.WriteLine();
             }
         }
         private static void ConfirmExit()
@@ -185,75 +179,149 @@
         {
             Console.ForegroundColor = gameSettings.cellColor;
             Console.SetCursorPosition(0,0);
-            for (int j = 0; j <= fieldState.GetUpperBound(1); j++)
+            for (int j = 0; j <gameSettings.fieldSizeY; j++)
             {
-                for (int i = 0; i <= fieldState.GetUpperBound(0); i++)
+                for (int i = 0; i < gameSettings.fieldSizeX; i++)
                 {
-                    if (fieldState[i, j] != ' ')
+                    if (fieldState[i, j] != gameSettings.deadCell)
                     {
-                        gameSettings.cellColor = (ConsoleColor)(fieldState[i, j] - '0' + 1);
-                        Console.ForegroundColor = gameSettings.cellColor;
+                        Console.ForegroundColor = (ConsoleColor)(fieldState[i, j] - '0' + 1);
                     }
                     Console.Write(fieldState[i,j]);
                 }
                 Console.WriteLine();
             }
         }
+        static void ReDrawFieldUnderMenu(char[,] fieldState)
+        {
+            Console.ForegroundColor = gameSettings.cellColor;
+            Console.SetCursorPosition(0, 0);
+            for (int j = 0; j < (gameSettings.fieldSizeY > gameSettings.menuSizeY? gameSettings.menuSizeY : gameSettings.fieldSizeY); j++)
+            {
+                for (int i = 0; i < (gameSettings.fieldSizeX > gameSettings.menuSizeX ? gameSettings.menuSizeX : gameSettings.fieldSizeX); i++)
+                {
+                    if (fieldState[i, j] != gameSettings.deadCell)
+                    {
+                        Console.ForegroundColor = (ConsoleColor)(fieldState[i, j] - '0' + 1);
+                    }
+                    Console.Write(fieldState[i, j]);
+                }
+                Console.WriteLine();
+            }
+        }
         static char[,] CalculateNewStateField(char[,] oldStateField)
         {
-            char[,] fieldNew = new char[oldStateField.GetUpperBound(0) + 1, oldStateField.GetUpperBound(1) + 1];
-            int neighboursCount = 0;
-            for(int n=gameSettings.populations-1; n>=0;n--)
+            char[,] fieldNew = new char[gameSettings.fieldSizeX, gameSettings.fieldSizeY];
+            int[] neighboursCount = new int[gameSettings.populations];
+            for (int j = 0; j < gameSettings.fieldSizeY; j++)
             {
-                gameSettings.cellColor = (ConsoleColor)(n+1);
-                Console.ForegroundColor = gameSettings.cellColor;
-
-                for (int j = 0; j <= oldStateField.GetUpperBound(1); j++)
+                for (int i = 0; i < gameSettings.fieldSizeX; i++)
                 {
-                    for (int i = 0; i <= oldStateField.GetUpperBound(0); i++)
+                    neighboursCount = CalculateNeighbours(i, j, oldStateField);
+                    if (oldStateField[i, j] == gameSettings.deadCell) 
                     {
-                        neighboursCount = CalculateNeighbours(i, j, oldStateField, n);
-                        if (oldStateField[i, j] == gameSettings.deadCell && neighboursCount == 3)
-                        {
-                            fieldNew[i, j] = gameSettings.aliveCell[n];
-                            Console.SetCursorPosition(i, j);
-                            Console.Write(gameSettings.aliveCell[n]);
+                        bool bornCell = false;
+                        for (int n = 0; n < gameSettings.populations; n++)
+                        { 
+                            if (neighboursCount[n] == 3)
+                            {
+                                bornCell = true;
+                                gameSettings.cellColor = (ConsoleColor)(n + 1);
+                                Console.ForegroundColor = gameSettings.cellColor;
+                                fieldNew[i, j] = gameSettings.aliveCell[n];
+                                Console.SetCursorPosition(i, j);
+                                if (gameSettings.debugMode)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Yellow;
+                                    Console.Write(gameSettings.deadCell);
+                                }
+                                else
+                                {
+                                    Console.Write(gameSettings.aliveCell[n]);
+                                }
+                                break;
+                            }
                         }
-                        else if (oldStateField[i, j] == gameSettings.aliveCell[n] && (neighboursCount < 2 || neighboursCount > 3))
-                        {
-                            fieldNew[i, j] = gameSettings.deadCell;
-                            Console.SetCursorPosition(i, j);
-                            Console.Write(gameSettings.deadCell);
-                        }
-                        else
+                        if (!bornCell)
                         {
                             fieldNew[i, j] = oldStateField[i, j];
                         }
                     }
+                    else if (neighboursCount[int.Parse(oldStateField[i, j].ToString())] == 2 || neighboursCount[int.Parse(oldStateField[i, j].ToString())] == 3)
+                    {
+                        fieldNew[i, j] = oldStateField[i, j];
+                    }
+                    else
+                    {
+                        bool bornCell = false;
+                        for (int n = 0; n < gameSettings.populations; n++)
+                        {
+                            if (neighboursCount[n] == 3)
+                            {
+                                bornCell = true;
+                                gameSettings.cellColor = (ConsoleColor)(n + 1);
+                                Console.ForegroundColor = gameSettings.cellColor;
+                                fieldNew[i, j] = gameSettings.aliveCell[n];
+                                Console.SetCursorPosition(i, j);
+                                if (gameSettings.debugMode)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Yellow;
+                                    Console.Write(gameSettings.deadCell);
+                                }
+                                else
+                                {
+                                    Console.Write(gameSettings.aliveCell[n]);
+                                }
+                                break;
+                            }
+                        }
+                        if (!bornCell)
+                        {
+                            fieldNew[i, j] = gameSettings.deadCell;
+                            Console.SetCursorPosition(i, j);
+                            if (gameSettings.debugMode)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.Write(oldStateField[i,j]);
+                            }
+                            else
+                            {
+                                Console.Write(gameSettings.deadCell);
+                            }
+
+
+
+
+                        }
+                    }                 
                 }
             }
-
+            if (gameSettings.debugMode) Console.ReadLine();
             return fieldNew;
         }
-        static int CalculateNeighbours (int xPos,int yPos, char[,] oldStateField, int population)
+        static int[] CalculateNeighbours (int xPos,int yPos, char[,] oldStateField)
         {
-            int neighbours = 0;
-            if (yPos>0 && xPos>0 && oldStateField[xPos-1,yPos-1]== gameSettings.aliveCell[population])
-            { neighbours++; }
-            if (yPos > 0 && oldStateField[xPos,yPos-1] == gameSettings.aliveCell[population])
-            { neighbours++; }
-            if (yPos > 0 && xPos < gameSettings.fieldSizeX-1 && oldStateField[xPos + 1,yPos - 1] == gameSettings.aliveCell[population])
-            { neighbours++; }
-            if ( xPos > 0 && oldStateField[xPos-1,yPos] == gameSettings.aliveCell[population])
-            { neighbours++; }
-            if (xPos < gameSettings.fieldSizeX-1 && oldStateField[xPos+1,yPos] == gameSettings.aliveCell[population])
-            { neighbours++; }
-            if (yPos < gameSettings.fieldSizeY-1 && xPos > 0 && oldStateField[xPos - 1,yPos + 1] == gameSettings.aliveCell[population])
-            { neighbours++; }
-            if (yPos < gameSettings.fieldSizeY-1 && oldStateField[xPos, yPos + 1] == gameSettings.aliveCell[population])
-            { neighbours++; }
-            if (yPos < gameSettings.fieldSizeY-1 && xPos < gameSettings.fieldSizeX-1 && oldStateField[xPos + 1, yPos + 1] == gameSettings.aliveCell[population])
-            { neighbours++; }
+            int[] neighbours = new int[gameSettings.populations];
+            for (int i = 0; i < gameSettings.populations; i++)
+            {
+                if (yPos>0 && xPos>0 && oldStateField[xPos-1,yPos-1]== gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if (yPos > 0 && oldStateField[xPos,yPos-1] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if (yPos > 0 && xPos < gameSettings.fieldSizeX-1 && oldStateField[xPos + 1,yPos - 1] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if ( xPos > 0 && oldStateField[xPos-1,yPos] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if (xPos < gameSettings.fieldSizeX-1 && oldStateField[xPos+1,yPos] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if (yPos < gameSettings.fieldSizeY-1 && xPos > 0 && oldStateField[xPos - 1,yPos + 1] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if (yPos < gameSettings.fieldSizeY-1 && oldStateField[xPos, yPos + 1] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+                if (yPos < gameSettings.fieldSizeY-1 && xPos < gameSettings.fieldSizeX-1 && oldStateField[xPos + 1, yPos + 1] == gameSettings.aliveCell[i])
+                { neighbours[i]++; }
+            }
+
             return neighbours;
         }
     }
