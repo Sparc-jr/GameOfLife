@@ -20,8 +20,8 @@
             int width = gameSettings.fieldSizeX;
             int height = gameSettings.fieldSizeY;
             Console.CursorVisible = false;
-            Console.SetWindowSize(gameSettings.fieldSizeX > gameSettings.minConsoleWidth ? gameSettings.fieldSizeX + 2 : gameSettings.minConsoleWidth + 2,
-                                  gameSettings.fieldSizeY > gameSettings.minConsoleHeight ? gameSettings.fieldSizeY + 1 : gameSettings.minConsoleHeight + 1);
+            Console.SetWindowSize(gameSettings.fieldSizeX > gameSettings.menuSizeX ? gameSettings.fieldSizeX + 1 : gameSettings.menuSizeX+1,
+                                  gameSettings.fieldSizeY > gameSettings.menuSizeY ? gameSettings.fieldSizeY + 1 : gameSettings.menuSizeY+1);
             char[,] fieldCurrentState = new char[width,height];
             char[,] fieldNewState = new char[width, height];
             fieldCurrentState = GenerateStartField(width, height);                    
@@ -102,8 +102,8 @@
         }
         public static void ResizeField()
         {
-            Console.SetWindowSize(gameSettings.fieldSizeX > gameSettings.minConsoleWidth ? gameSettings.fieldSizeX + 2 : gameSettings.minConsoleWidth+2, 
-                                  gameSettings.fieldSizeY > gameSettings.minConsoleHeight ? gameSettings.fieldSizeY + 1 : gameSettings.minConsoleHeight+1);
+            Console.SetWindowSize(gameSettings.fieldSizeX > gameSettings.menuSizeX ? gameSettings.fieldSizeX + 1 : gameSettings.menuSizeX + 1,
+                                  gameSettings.fieldSizeY > gameSettings.menuSizeY ? gameSettings.fieldSizeY + 1 : gameSettings.menuSizeY + 1);
         }
         private static void DrawMenuBorders()
         {
@@ -196,9 +196,9 @@
         {
             Console.ForegroundColor = gameSettings.cellColor;
             Console.SetCursorPosition(0, 0);
-            for (int j = 0; j < (gameSettings.fieldSizeY > gameSettings.menuSizeY? gameSettings.menuSizeY : gameSettings.fieldSizeY); j++)
+            for (int j = 0; j < (fieldState.GetUpperBound(1) > gameSettings.menuSizeY? gameSettings.menuSizeY : fieldState.GetUpperBound(1)); j++)
             {
-                for (int i = 0; i < (gameSettings.fieldSizeX > gameSettings.menuSizeX ? gameSettings.menuSizeX : gameSettings.fieldSizeX); i++)
+                for (int i = 0; i < (fieldState.GetUpperBound(0) > gameSettings.menuSizeX ? gameSettings.menuSizeX : fieldState.GetUpperBound(0)); i++)
                 {
                     if (fieldState[i, j] != gameSettings.deadCell)
                     {

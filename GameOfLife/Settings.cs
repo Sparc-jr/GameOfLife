@@ -8,13 +8,13 @@ namespace GameOfLife
 {
     internal class Settings
     {
-        public int populations = 2;                                     //число популяций клеток
+        public int populations = 2;                                     //число видов популяций клеток
         public enum cellsInteraction : int
         {
             neutral = 0,
             simbiotic,
             agressive
-        } //взаимодействие популяций: 0 - нейтральны; 1 - симбиоты; 2 - агрессивны
+        } //взаимодействие видов: 0 - нейтральны; 1 - симбиоты; 2 - агрессивны
         public char[] aliveCell = new char[10] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };// живая клетка  
         public char deadCell = ' ';                                   // мертвая клетка
         public int density = 5;     //живых клеток на 20 ячеек поля       
@@ -22,8 +22,6 @@ namespace GameOfLife
         public int fieldSizeY = 10;          // размер игрового поля
         public int menuSizeX = 32;
         public int menuSizeY = 16;
-        public int minConsoleWidth = 30;
-        public int minConsoleHeight = 16;
         public ConsoleColor backgroundColor = ConsoleColor.Black;       // цвет фона консоли
         public ConsoleColor fieldColor = ConsoleColor.White;            // цвет символов игрового поля
         public ConsoleColor cellColor = ConsoleColor.DarkBlue;            // цвет клеток
