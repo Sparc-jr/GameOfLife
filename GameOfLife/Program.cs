@@ -31,14 +31,19 @@
             char[,] fieldCurrentState = new char[width,height];
             fieldCurrentState = GenerateStartField(width, height);                    
             DrawField(fieldCurrentState);
+            List<Cells> cellsWithChanges = new List<Cells>();
             ConsoleKeyInfo keyPressed;
             do
             {
-                List<Cells> cellsWithChanges = CalculateCellsToChangeState(fieldCurrentState);
-                UpdateFieldState(fieldCurrentState, cellsWithChanges);
+                switch (gameSettings.cellsInteraction)
+                {
+                    case Settings.CellsInteraction.нейтральное: cellsWithChanges = CalculateCellsToChangeState(fieldCurrentState); break;
+                    case Settings.CellsInteraction.симбиотическое: cellsWithChanges = CalculateSimbioticCellsToChangeState(fieldCurrentState); break;
+                    case Settings.CellsInteraction.агрессивное: cellsWithChanges = CalculateAgressiveCellsToChangeState(fieldCurrentState); break;
+                }
                 if (gameSettings.debugMode)
                 {
-                    DrawFieldUpdateDebugMode(cellsWithChanges);
+                    DrawFieldUpdateDebugMode(fieldCurrentState,cellsWithChanges);
                     Console.ReadLine();
                     DrawFieldUpdate(cellsWithChanges);
                     Console.ReadLine();
@@ -46,8 +51,10 @@
                 {
                     DrawFieldUpdate(cellsWithChanges);
                 }
+                UpdateFieldState(fieldCurrentState, cellsWithChanges);
                 Console.ForegroundColor = ConsoleColor.White;
                 Thread.Sleep(gameSettings.realSpeed[gameSettings.speed - 1] * gameSettings.speedCorrection / gameSettings.fieldSizeX / gameSettings.fieldSizeY);
+                cellsWithChanges.Clear();
                 if (Console.KeyAvailable)
                 {
                     keyPressed = Console.ReadKey(true);
@@ -81,9 +88,13 @@
                 Console.Write($"Скорость симуляции (W/S):  {gameSettings.speed}");
                 Console.SetCursorPosition(2, 10);
                 Console.Write($"Число видов клеток (E/D): {gameSettings.populations,2}");
-                Console.SetCursorPosition(4, 12);
+                Console.SetCursorPosition(2, 12);
+                Console.Write("Взаимодействие популяций");
+                Console.SetCursorPosition(2, 13);
+                Console.Write($" \"Tab\": {gameSettings.cellsInteraction,14}");
+                Console.SetCursorPosition(4, 15);
                 Console.Write("Перезапустить игру: \"R\"");
-                Console.SetCursorPosition( 7, 14);
+                Console.SetCursorPosition( 7, 17);
                 Console.Write("Выйти из игры: \"X\"");
                 keyPressed = Console.ReadKey(true);
                 switch (keyPressed.Key)
@@ -98,6 +109,7 @@
                     case ConsoleKey.S: gameSettings.speed -= gameSettings.speed > 1 ? 1 : 0; break;//уменьшение скорости игры
                     case ConsoleKey.E: gameSettings.populations += gameSettings.populations < gameSettings.maxPopulations ? 1 : 0; restart = true; break;//увеличение числа видов 
                     case ConsoleKey.D: gameSettings.populations -= gameSettings.populations > 1 ? 1 : 0; restart = true; break;//уменьшение числа видов
+                    case ConsoleKey.Tab: gameSettings.cellsInteraction = (int)(gameSettings.cellsInteraction) < 2 ? (Settings.CellsInteraction)((int)(gameSettings.cellsInteraction) + 1) : Settings.CellsInteraction.нейтральное; restart = true; break;//изменение взаимодействия популяций
                     case ConsoleKey.R: restart = true; menu = false; EraseMenuLeftovers(); break;
                     case ConsoleKey.X: ConfirmExit(); menu = false; break;                            //выход из игры
                     case ConsoleKey.Escape: menu = false; EraseMenuLeftovers(); break;                 //возврат в игру
@@ -235,13 +247,13 @@
                 Console.Write(cell.State);
             }
         }
-        static void DrawFieldUpdateDebugMode(List<Cells> changingCells)
+        static void DrawFieldUpdateDebugMode(char[,] fieldState, List<Cells> changingCells)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = ConsoleColor.Red;
             foreach (Cells cell in changingCells)
             {
                 Console.SetCursorPosition(cell.X, cell.Y);
-                Console.Write(cell.State);
+                Console.Write(fieldState[cell.X, cell.Y]);
             }
         }
         static void UpdateFieldState(char[,] fieldState, List<Cells> changingCells)
@@ -289,12 +301,10 @@
                     neighboursCount = CalculateNeighbours(i, j, oldStateField);
                     if (oldStateField[i, j] == gameSettings.deadCell)
                     {
-                        bool bornCell = false;
                         for (int n = 0; n < gameSettings.populations; n++)
                         {
-                            if (neighboursCount[n] == 3)
+                            if (neighboursCount[n] == gameSettings.amountToBorn)
                             {
-                                bornCell = true;
                                 Cells cell = new Cells() { X = i, Y = j, State = (char)('0' + n)};
                                 cellsToUpdate.Add(cell);
                                 break;
@@ -302,12 +312,12 @@
                         }
 
                     }
-                    else if (neighboursCount[oldStateField[i, j]-'0'] != 2 && neighboursCount[oldStateField[i, j]-'0'] != 3)
+                    else if (neighboursCount[oldStateField[i, j]-'0'] != gameSettings.minAmountToAlive && neighboursCount[oldStateField[i, j]-'0'] != gameSettings.minAmountToAlive)
                     {                    
                         bool bornCell = false;
                         for (int n = 0; n < gameSettings.populations; n++)
                         {
-                            if (neighboursCount[n] == 3)
+                            if (neighboursCount[n] == gameSettings.amountToBorn)
                             {
                                 bornCell = true;
                                 Cells cell = new Cells() { X = i, Y = j, State = (char)('0' + n) };
@@ -320,6 +330,174 @@
                             Cells cell = new Cells() { X = i, Y = j, State = gameSettings.deadCell };
                             cellsToUpdate.Add(cell); 
                         }
+                    }
+                }
+            }
+            return cellsToUpdate;
+        }
+        static List<Cells> CalculateSimbioticCellsToChangeState(char[,] oldStateField)
+        {
+            List<Cells> cellsToUpdate = new List<Cells>();
+            int[] neighboursCount = new int[gameSettings.populations];
+            for (int j = 0; j < gameSettings.fieldSizeY; j++)
+            {
+                for (int i = 0; i < gameSettings.fieldSizeX; i++)
+                {
+                    neighboursCount = CalculateNeighbours(i, j, oldStateField);
+                    int allNeighboursCount = neighboursCount.Sum();
+                    int dominantPopulation = Array.IndexOf(neighboursCount, neighboursCount.Max());
+                    bool bornCell = false;
+                    bool dieCell = false;
+                    if (oldStateField[i, j] == gameSettings.deadCell)
+                    {
+                        bool bornInFreeCell = false;
+                        for (int n = 0; n < gameSettings.populations; n++)
+                        {
+                            if (neighboursCount[n] == gameSettings.amountToBorn)
+                            {
+                                bornInFreeCell = true;
+                                Cells cell = new Cells() { X = i, Y = j, State = (char)('0' + n) };
+                                cellsToUpdate.Add(cell);
+                                break;
+                            }
+                        }
+                        if (!bornInFreeCell && allNeighboursCount == gameSettings.amountToBorn)
+                        {
+                            bornCell = true;
+                        }
+                    }
+                    else if (neighboursCount[oldStateField[i, j] - '0'] < gameSettings.minAmountToAlive)
+                    {
+
+                        if (allNeighboursCount < gameSettings.minAmountToAlive || allNeighboursCount > gameSettings.maxAmountSimbioticToAlive)
+                        {
+                            dieCell = true;
+                        }
+                        else if (allNeighboursCount == gameSettings.amountToBorn)
+                        {
+                            bornCell = true;
+                        }
+                        else if (allNeighboursCount > gameSettings.amountToBorn && allNeighboursCount <= gameSettings.maxAmountSimbioticToAlive)
+                        {
+                            for (int n = 0; n < gameSettings.populations; n++)
+                            {
+                                if (neighboursCount[n] == gameSettings.amountToBorn)
+                                {
+                                    bornCell = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else if (neighboursCount[oldStateField[i, j] - '0'] >= gameSettings.minAmountToAlive && neighboursCount[oldStateField[i, j] - '0'] <= gameSettings.maxAmountToAlive)
+                    {
+                        if (allNeighboursCount > gameSettings.maxAmountSimbioticToAlive)
+                        {
+                            dieCell = true;
+                        }
+                        else
+                        {
+                            for (int n = 0; n < gameSettings.populations; n++)
+                            {
+                                if (neighboursCount[n] == gameSettings.amountToBorn)
+                                {
+                                    bornCell = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        dieCell = true;
+                    }
+                    if (dieCell)
+                    {
+                        Cells cell = new Cells() { X = i, Y = j, State = gameSettings.deadCell };
+                        cellsToUpdate.Add(cell);
+                    }
+                    if (bornCell)
+                    {
+                        Cells cell = new Cells() { X = i, Y = j, State = (char)('0' + dominantPopulation) };
+                        cellsToUpdate.Add(cell);
+                    }                    
+                }
+            }
+            return cellsToUpdate;
+        }
+        static List<Cells> CalculateAgressiveCellsToChangeState(char[,] oldStateField)
+        {
+            List<Cells> cellsToUpdate = new List<Cells>();
+            int[] neighboursCount = new int[gameSettings.populations];
+            for (int j = 0; j < gameSettings.fieldSizeY; j++)
+            {
+                for (int i = 0; i < gameSettings.fieldSizeX; i++)
+                {
+                    neighboursCount = CalculateNeighbours(i, j, oldStateField);
+                    int allNeighboursCount = neighboursCount.Sum();
+                    int amountOfDominantPopulation = neighboursCount.Max();
+                    int dominantPopulation = Array.IndexOf(neighboursCount, amountOfDominantPopulation);
+                    bool bornCell = false;
+                    bool dieCell = false;
+
+                    if (oldStateField[i, j] == gameSettings.deadCell)
+                    {
+                        for (int n = 0; n < gameSettings.populations; n++)
+                        {
+                            int otherNeighboursCount = allNeighboursCount - neighboursCount[n];
+                            if (neighboursCount[n] == gameSettings.amountToBorn && neighboursCount[n] >= otherNeighboursCount)
+                            {
+                                bornCell = true;
+                                break;
+                            }
+                            else if (neighboursCount[n] == gameSettings.amountToBornAgressiveMode && neighboursCount[n] > otherNeighboursCount && otherNeighboursCount > 0)
+                            {
+                                bornCell = true;
+                                break;
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        int thisNeighboursCount = neighboursCount[oldStateField[i, j] - '0'];
+                        int otherNeighboursCount = allNeighboursCount - thisNeighboursCount;
+                        if (thisNeighboursCount < gameSettings.minAmountToAlive)
+                        {
+                            if (amountOfDominantPopulation == gameSettings.amountToBorn || amountOfDominantPopulation == gameSettings.amountToBornAgressiveMode)
+                            {
+                                bornCell=true;
+                            }
+                            else
+                            {
+                                dieCell=true;
+                            }
+                        }
+                        else if (thisNeighboursCount <= gameSettings.maxAmountToAlive)
+                        {
+                            if (amountOfDominantPopulation >= thisNeighboursCount + gameSettings.amountOfExcessToCapture)
+                            {
+                                bornCell = true;
+                            }
+                            else if (allNeighboursCount > gameSettings.maxAmountSimbioticToAlive)
+                            {
+                                dieCell = true;
+                            }
+                        }
+                        else
+                        {
+                            dieCell = true;
+                        }
+                    }
+                    if (dieCell)
+                    {
+                        Cells cell = new Cells() { X = i, Y = j, State = gameSettings.deadCell };
+                        cellsToUpdate.Add(cell);
+                    }
+                    if (bornCell)
+                    {
+                        Cells cell = new Cells() { X = i, Y = j, State = (char)('0' + dominantPopulation) };
+                        cellsToUpdate.Add(cell);
                     }
                 }
             }
