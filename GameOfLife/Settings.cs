@@ -18,7 +18,7 @@ namespace GameOfLife
         } //взаимодействие видов: 0 - нейтральны; 1 - симбиоты; 2 - агрессивны
         public CellsInteraction cellsInteraction = new CellsInteraction();
         public char[] aliveCell = new char[10] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };// живая клетка  
-        public char deadCell = 'x';                                   // мертвая клетка
+        public char deadCell = ' ';                                   // мертвая клетка
         public int density = 15;     //живых клеток на 20 ячеек поля
         public int maxDensity = 20;  
         public int fieldSizeX = 32;           // размер игрового поля
