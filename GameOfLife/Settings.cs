@@ -26,11 +26,11 @@ namespace GameOfLife
         public int menuSizeX = 32;
         public int menuSizeY = 19;
         public int maxFieldSizeX = 230;
-        public int maxFieldSizeY = 60;
+        public int maxFieldSizeY = 55;
         public int minFieldSize = 5;
         public ConsoleColor backgroundColor = ConsoleColor.Black;       // цвет фона консоли
         public ConsoleColor fieldColor = ConsoleColor.White;            // цвет символов игрового поля
-        public ConsoleColor menuBorderColor = ConsoleColor.Blue;              // цвет рамки меню
+        public ConsoleColor menuBorderColor = ConsoleColor.Blue;        // цвет рамки меню
         public int speed = 3;                                         //скорость игры
         public int speedCorrection = 800;
         public int[] realSpeed = { 300, 200, 100, 50, 20, 10 };
